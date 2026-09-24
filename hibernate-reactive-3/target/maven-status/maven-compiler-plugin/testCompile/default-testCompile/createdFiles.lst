@@ -1,0 +1,5 @@
+org/hibernate/reactive/bugs/model/MyEntity.class
+org/hibernate/reactive/util/ConnectionURL.class
+org/hibernate/reactive/util/DockerImage.class
+org/hibernate/reactive/bugs/ConcurrentDeleteTestCase.class
+org/hibernate/reactive/util/Database.class

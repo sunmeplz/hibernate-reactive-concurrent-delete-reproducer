@@ -6,20 +6,23 @@ It has no framework on top of Hibernate Reactive: just `Mutiny.SessionFactory`, 
 ## What happens
 
 The test starts 50 transactions at once.
-Each one runs in its own session (`openSession()`) and deletes a different, already existing row of the same entity type.
+They all run on one event loop context of the Vert.x instance Hibernate Reactive is configured with.
+Each transaction opens its own session with `openSession()`, deletes a different, already existing row of the same entity type, and closes the session.
 
-Most of these transactions never complete:
-- the flush never finishes, so COMMIT is never sent;
-- nothing fails and nothing is logged;
-- the connections stay `idle in transaction` in PostgreSQL until the pool is exhausted.
+Most of these transactions never complete.
+A separate connection, outside Hibernate Reactive's pool, shows what the database sees:
 
-A control test does the same thing with an update instead of a delete, and every transaction completes.
+| Scenario (50 transactions) | Completed | Connections `idle in transaction` | Rows left |
+|---|---|---|---|
+| deletes, one after another | 50/50 | 0 | 0 |
+| **deletes, concurrent** | **31/50** | **19**, last statement `delete from MyEntity where id=$1` | **19** |
+| the same, 30 s later | 31/50 | 19 | 19 |
+| updates, concurrent | 50/50 | 0 | 50 (updated) |
 
-| Hibernate Reactive | 50 concurrent updates | 50 concurrent deletes |
-|---|---|---|
-| 3.1.10.Final | 50/50 | **31/50** |
-| 3.4.3.Final | 50/50 | **31/50** |
-| 4.5.7.Final | 50/50 | **31/50** |
+The DELETE statements reach the database, but COMMIT is never sent: the flush never finishes.
+Nothing fails and nothing is logged, and the stuck connections hold the pool until it is exhausted.
+
+The results are the same on 3.1.10.Final, 3.4.3.Final and 4.5.7.Final (with 4.5.7, 32/50 complete and 18 stay stuck).
 
 ## Likely cause
 
@@ -31,6 +34,8 @@ It keeps the pending delete in an instance field, `private CompletionStage<Void>
 
 When deletes overlap, the first DELETE to return completes whatever stage the field holds at that moment.
 That stage usually belongs to another session, and every other stage is never completed.
+
+The authors' own Javadoc for the update path names the rule this breaks: `ReactiveScopedUpdateCoordinator` is "Scoped to a single operation, so that we can keep instance scoped state".
 
 `ReactiveDeleteCoordinatorSoft` has the same field.
 
@@ -52,5 +57,5 @@ cd hibernate-reactive-4 && mvn test -Dtest=ConcurrentDeleteTestCase -Dversion.or
 cd hibernate-reactive-3 && mvn test -Dtest=ConcurrentDeleteTestCase -Dversion.org.hibernate.reactive=3.1.10.Final
 ```
 
-`concurrentUpdatesInSeparateSessionsAllComplete` passes.
-`concurrentDeletesInSeparateSessionsAllComplete` fails with `COMPLETED 31/50`.
+`sequentialDeletesInSeparateSessions` and `concurrentUpdatesInSeparateSessions` pass.
+`concurrentDeletesInSeparateSessions` fails, and prints the table rows above.

@@ -1,0 +1,14 @@
+-------------------------------------------------------------------------------
+Test set: org.hibernate.reactive.bugs.ConcurrentDeleteTestCase
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 64.90 s <<< FAILURE! -- in org.hibernate.reactive.bugs.ConcurrentDeleteTestCase
+org.hibernate.reactive.bugs.ConcurrentDeleteTestCase.concurrentDeletesInSeparateSessions -- Time elapsed: 60.10 s <<< FAILURE!
+org.opentest4j.AssertionFailedError: 
+[transactions completed] 
+expected: 50L
+ but was: 32L
+	at org.hibernate.reactive.bugs.ConcurrentDeleteTestCase.concurrentDeletesInSeparateSessions(ConcurrentDeleteTestCase.java:112)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+
